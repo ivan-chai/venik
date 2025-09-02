@@ -104,24 +104,38 @@ class SweepDB:
         return json.loads(result[0]["config"])
 
 
-class UniformIntegerSampler:
-    def __init__(self, name, min, max):
+class CategoricalSampler:
+    def __init__(self, name, values):
+        self.name = name
+        self.values = values
+
+    def __call__(self, trial):
+        return trial.suggest_categorical(self.name, self.values)
+
+
+class IntegerSampler:
+    def __init__(self, name, min, max, log=False):
         self.name = name
         self.min = min
         self.max = max
+        self.log = log
 
     def __call__(self, trial):
-        return trial.suggest_int(self.name, low=self.min, high=self.max)
+        return trial.suggest_int(self.name, low=self.min, high=self.max, log=self.log)
 
 
-class UniformFloatSampler:
-    def __init__(self, name, min, max):
+class FloatSampler:
+    def __init__(self, name, min, max, log=False):
         self.name = name
         self.min = min
         self.max = max
+        self.log = log
 
     def __call__(self, trial):
-        return trial.suggest_int(self.name, low=self.min, high=self.max)
+        if self.log:
+            return trial.suggest_loguniform(self.name, low=self.min, high=self.max)
+        else:
+            return trial.suggest_uniform(self.name, low=self.min, high=self.max)
 
 
 class ParameterSampler:
@@ -129,11 +143,19 @@ class ParameterSampler:
         self.parameters = {}
         for name, spec in parameters.items():
             assert isinstance(spec, dict)
-            if ("min" in spec) and ("max" in spec):
+            spec = dict(spec)
+            if "values" in spec:
+                self.parameters[name] = CategoricalSampler(name, **spec)
+            elif ("min" in spec) and ("max" in spec):
+                distribution = spec.pop("distribution", None)
+                if distribution == "log_uniform_values":
+                    spec["log"] = True
+                elif distribution is not None:
+                    raise ValueError(f"Unknown distribution: {distribution}")
                 if isinstance(spec["min"], int) and isinstance(spec["max"], int):
-                    self.parameters[name] = UniformIntegerSampler(name, **spec)
+                    self.parameters[name] = IntegerSampler(name, **spec)
                 else:
-                    self.parameters[name] = UniformFloatSampler(name, **spec)
+                    self.parameters[name] = FloatSampler(name, **spec)
             else:
                 raise NotImplementedError(f"Unexpected specification: {spec}")
 
