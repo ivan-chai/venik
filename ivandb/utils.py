@@ -1,0 +1,143 @@
+import certifi
+import optuna
+import re
+import os
+import json
+import sqlalchemy as sa
+from urllib.parse import quote_plus
+from sqlalchemy import create_engine
+
+
+OPTUNA_DB = "Optuna"
+SWEEP_DB = "Sweeps"
+SQL_ENGINE_KWARGS = {"pool_size": 20, "connect_args": {
+    "connect_timeout": 10,
+    "ssl_ca": certifi.where(),
+    "ssl_verify_cert": True,
+    "ssl_verify_identity": True
+}}
+
+
+def get_mysql_url():
+    uri = os.environ["MLFLOW_TRACKING_URI"]
+    user = os.environ["MLFLOW_TRACKING_USERNAME"]
+    password = os.environ["MLFLOW_TRACKING_PASSWORD"]
+
+    if not uri.endswith(":8080"):
+        raise NotImplementedError("Only 8080 port for MLflow is supported.")
+    host = uri[:-5].split("://")[1]
+    url = f"mysql+pymysql://{user}:{quote_plus(password)}@{host}"
+    return url
+
+
+def get_optuna_storage():
+    storage = optuna.storages.RDBStorage(
+        url=get_mysql_url() + f"/{OPTUNA_DB}",
+        engine_kwargs=SQL_ENGINE_KWARGS,
+    )
+    return storage
+
+
+class SweepDB:
+    def __init__(self):
+        self.engine = create_engine(
+            get_mysql_url() + f"/{SWEEP_DB}",
+            **SQL_ENGINE_KWARGS
+        )
+        with self.engine.begin() as conn:
+            query = sa.text("""
+            SELECT *
+                    FROM INFORMATION_SCHEMA.TABLES
+                    WHERE TABLE_NAME = 'Sweeps';
+            """)
+            result = conn.execute(query).mappings().all()
+            if not result:
+                # Create Sweeps table.
+                query = sa.text("""
+                CREATE TABLE Sweeps (
+                    sweep_id TEXT(1024),
+                    config TEXT(65535)
+                );
+                """)
+                result = conn.execute(query)
+
+    def get_sweeps_list(self):
+        with self.engine.begin() as conn:
+            query = sa.text("""
+            SELECT sweep_id
+                    FROM Sweeps;
+            """)
+            result = conn.execute(query).mappings().all()
+        return result
+
+    def add_sweep(self, name, config):
+        with self.engine.begin() as conn:
+            query = sa.text(f"""
+            INSERT INTO Sweeps (sweep_id, config)
+                    VALUES ('{name}', '{json.dumps(config)}');
+            """)
+            result = conn.execute(query)
+            if result.rowcount != 1:
+                raise RuntimeError(f"Sweep creation failed: {result.rowcount} records affected")
+        return result
+
+    def del_sweep(self, name):
+        with self.engine.begin() as conn:
+            query = sa.text(f"""
+            DELETE FROM Sweeps
+                    WHERE sweep_id='{name}';
+            """)
+            conn.execute(query)
+
+    def get_sweep_config(self, name):
+        with self.engine.begin() as conn:
+            query = sa.text(f"""
+            SELECT config
+                    FROM Sweeps
+                    WHERE sweep_id='{name}';
+            """)
+            result = conn.execute(query).mappings().all()
+            if len(result) == 0:
+                raise KeyError("Sweep not found")
+            if len(result) > 1:
+                raise RuntimeError("Multiple Sweeps")
+        return json.loads(result[0]["config"])
+
+
+class UniformIntegerSampler:
+    def __init__(self, name, min, max):
+        self.name = name
+        self.min = min
+        self.max = max
+
+    def __call__(self, trial):
+        return trial.suggest_int(self.name, low=self.min, high=self.max)
+
+
+class UniformFloatSampler:
+    def __init__(self, name, min, max):
+        self.name = name
+        self.min = min
+        self.max = max
+
+    def __call__(self, trial):
+        return trial.suggest_int(self.name, low=self.min, high=self.max)
+
+
+class ParameterSampler:
+    def __init__(self, parameters):
+        self.parameters = {}
+        for name, spec in parameters.items():
+            assert isinstance(spec, dict)
+            if ("min" in spec) and ("max" in spec):
+                if isinstance(spec["min"], int) and isinstance(spec["max"], int):
+                    self.parameters[name] = UniformIntegerSampler(name, **spec)
+                else:
+                    self.parameters[name] = UniformFloatSampler(name, **spec)
+            else:
+                raise NotImplementedError(f"Unexpected specification: {spec}")
+
+    def sample(self, trial):
+        """Get parameters."""
+        return {name: sampler(trial)
+                for name, sampler in self.parameters.items()}
