@@ -14,15 +14,17 @@ def parse_arguments():
     parser = argparse.ArgumentParser("Start sweep")
     parser.add_argument("sweep_id", help="Config path")
     parser.add_argument("--count", type=int, help="The total amount of runs")
+    parser.add_argument("-a", "--args", nargs="*", help="Extra parameters for the worker")
     args = parser.parse_args()
     return args
 
 
 class Agent:
-    def __init__(self, sweep_id):
+    def __init__(self, sweep_id, cmd_args=None):
         self.config = SweepDB().get_sweep_config(sweep_id)
         assert "run_cap" in self.config
         self.sampler = ParameterSampler(self.config["parameters"])
+        self.cmd_args = cmd_args
 
     @property
     def default_count(self):
@@ -46,6 +48,8 @@ class Agent:
                 raise ValueError(f"Unknown token: {token}")
             else:
                 cmd.append(token)
+        if self.cmd_args is not None:
+            cmd = cmd + self.cmd_args
 
         with tempfile.NamedTemporaryFile("r") as fp_info:
             # Setup MLflow environment.
@@ -74,7 +78,7 @@ def main(args):
     storage = get_optuna_storage()
     study = optuna.load_study(study_name=args.sweep_id, storage=storage)
 
-    agent = Agent(args.sweep_id)
+    agent = Agent(args.sweep_id, cmd_args=args.args)
     count = args.count if args.count is not None else agent.default_count
     study.optimize(agent, n_trials=count)
 
