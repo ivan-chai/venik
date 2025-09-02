@@ -19,9 +19,13 @@ class MLFlowLogger(MLFlowLoggerPL):
     def __init__(self, *,
                  experiment_name=None,
                  run_name=None,
+                 project=None,  # Alias for experiment_name.
+                 name=None,  # Alias for run_name.
                  tracking_uri=None,
                  tags=None,
                  **kwargs):
+        experiment_name = experiment_name or project
+        run_name = run_name or name
         if experiment_name is None:
             experiment_name = os.environ.get("MLFLOW_EXPERIMENT_NAME", "lightning_logs")
         if tracking_uri is None:
