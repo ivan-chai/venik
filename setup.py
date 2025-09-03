@@ -5,14 +5,14 @@ with open("README.md") as fp:
     long_description = fp.read()
 
 setuptools.setup(
-    name="ivandb",
+    name="venik",
     version="0.0.1",
     author="Ivan Karpukhin",
     author_email="karpuhini@yandex.ru",
     description="Sweeps-like wrapper around MLflow and Optuna.",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    packages=setuptools.find_packages(include=["ivandb", "ivandb.*"]),
+    packages=setuptools.find_packages(include=["venik", "venik.*"]),
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: Apache Software License",
