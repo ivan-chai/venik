@@ -21,6 +21,7 @@ def parse_arguments():
 
 class Agent:
     def __init__(self, sweep_id, cmd_args=None):
+        self.sweep_id = sweep_id
         self.config = SweepDB().get_sweep_config(sweep_id)
         assert "run_cap" in self.config
         self.sampler = ParameterSampler(self.config["parameters"])
@@ -32,7 +33,10 @@ class Agent:
 
     def __call__(self, trial):
         # Sample parameters.
-        client = MlflowClient()
+        tracking_uri = os.environ.get("MLFLOW_TRACKING_URI", None)
+        if tracking_uri is None:
+            raise RuntimeError("Need MLFLOW_TRACKING_URI environment variable")
+        client = MlflowClient(tracking_uri)
         args = self.sampler.sample(trial)
 
         # Construct command.
@@ -55,7 +59,9 @@ class Agent:
             # Setup MLflow environment.
             env.update({
                 "MLFLOW_INFO_FILE": fp_info.name,
+                "MLFLOW_PARENT_RUN_ID": self.config["_parent_mlflow_run_id_"],
                 "MLFLOW_EXPERIMENT_NAME": self.config["project"],
+                "MLFLOW_TAGS": env.get("MLFLOW_TAGS", "") + ";" + f"sweep_id={self.sweep_id};sweep_index={trial.number}"
             })
             print("Environment:", env)
 
