@@ -40,7 +40,11 @@ def init_sweep(args):
     client = MlflowClient(tracking_uri)
 
     experiment_name = config["project"]
-    experiment_id = client.get_experiment_by_name(experiment_name).experiment_id
+    experiment = client.get_experiment_by_name(experiment_name)
+    if experiment is None:
+        experiment_id = client.create_experiment(experiment_name)
+    else:
+        experiment_id = experiment.experiment_id
     parent_run = client.create_run(experiment_id=experiment_id,
                                    run_name="sweep-" + sweep_id)
     config["_parent_mlflow_run_id_"] = parent_run.info.run_id
