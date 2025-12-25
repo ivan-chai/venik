@@ -19,13 +19,20 @@ SQL_ENGINE_KWARGS = {"pool_size": 20, "connect_args": {
 
 
 def get_mysql_url():
-    uri = os.environ["MLFLOW_TRACKING_URI"]
-    user = os.environ["MLFLOW_TRACKING_USERNAME"]
-    password = os.environ["MLFLOW_TRACKING_PASSWORD"]
+    if "OPTUNA_URL" in os.environ:
+        if "OPTUNA_USER" not in os.environ or "OPTUNA_PASSWORD" not in os.environ:
+            raise ValueError("Need user and password for OPTUNA")
+        host = os.environ["OPTUNA_URL"]
+        user = os.environ["OPTUNA_USER"]
+        password = os.environ["OPTUNA_PASSWORD"]
+    else:
+        uri = os.environ["MLFLOW_TRACKING_URI"]
+        user = os.environ["MLFLOW_TRACKING_USERNAME"]
+        password = os.environ["MLFLOW_TRACKING_PASSWORD"]
 
-    if not uri.endswith(":8080"):
-        raise NotImplementedError("Only 8080 port for MLflow is supported.")
-    host = uri[:-5].split("://")[1]
+        if not uri.endswith(":8080"):
+            raise NotImplementedError("Only 8080 port for MLflow is supported.")
+        host = uri[:-5].split("://")[1]
     url = f"mysql+pymysql://{user}:{quote_plus(password)}@{host}"
     return url
 
