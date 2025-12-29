@@ -6,11 +6,12 @@ import json
 import sqlalchemy as sa
 from urllib.parse import quote_plus
 from sqlalchemy import create_engine
+from sqlalchemy.pool import NullPool
 
 
 OPTUNA_DB = "Optuna"
 SWEEP_DB = "Sweeps"
-SQL_ENGINE_KWARGS = {"pool_size": 20, "connect_args": {
+SQL_ENGINE_KWARGS = {"poolclass": NullPool, "connect_args": {
     "connect_timeout": 10,
     "ssl_ca": certifi.where(),
     "ssl_verify_cert": True,
