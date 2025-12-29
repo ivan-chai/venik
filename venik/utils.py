@@ -11,7 +11,7 @@ from sqlalchemy.pool import NullPool
 
 OPTUNA_DB = "Optuna"
 SWEEP_DB = "Sweeps"
-SQL_ENGINE_KWARGS = {"poolclass": NullPool, "connect_args": {
+SQL_ENGINE_KWARGS = {"connect_args": {
     "connect_timeout": 10,
     "ssl_ca": certifi.where(),
     "ssl_verify_cert": True,
@@ -38,10 +38,12 @@ def get_mysql_url():
     return url
 
 
-def get_optuna_storage():
+def get_optuna_storage(read_only=False):
     storage = optuna.storages.RDBStorage(
         url=get_mysql_url() + f"/{OPTUNA_DB}",
-        engine_kwargs=SQL_ENGINE_KWARGS,
+        engine_kwargs=SQL_ENGINE_KWARGS | {"pool_pre_ping": False},
+        skip_table_creation=not read_only,
+        skip_compatibility_check=not read_only
     )
     return storage
 

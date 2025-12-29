@@ -4,6 +4,7 @@ import optuna
 import os
 import string
 import tempfile
+import gc
 from mlflow.tracking import MlflowClient
 import subprocess as sp
 
@@ -81,8 +82,11 @@ class Agent:
 
 
 def main(args):
-    storage = get_optuna_storage()
+    storage = get_optuna_storage(read_only=True)
     study = optuna.load_study(study_name=args.sweep_id, storage=storage)
+    del storage
+    gc.collect()
+
     agent = Agent(args.sweep_id, cmd_args=args.args)
     count = args.count if args.count is not None else agent.default_count
     study.optimize(agent, n_trials=count)
