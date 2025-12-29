@@ -21,9 +21,9 @@ def parse_arguments():
 
 
 class Agent:
-    def __init__(self, sweep_id, cmd_args=None):
+    def __init__(self, sweep_id, sweep_config, cmd_args=None):
         self.sweep_id = sweep_id
-        self.config = SweepDB().get_sweep_config(sweep_id)
+        self.config = sweep_config
         assert "run_cap" in self.config
         self.sampler = ParameterSampler(self.config["parameters"])
         self.cmd_args = cmd_args
@@ -82,12 +82,11 @@ class Agent:
 
 
 def main(args):
-    storage = get_optuna_storage(read_only=True)
+    storage = get_optuna_storage()
     study = optuna.load_study(study_name=args.sweep_id, storage=storage)
-    del storage
-    gc.collect()
 
-    agent = Agent(args.sweep_id, cmd_args=args.args)
+    sweep_config = SweepDB(engine=storage.engine).get_sweep_config(args.sweep_id)
+    agent = Agent(args.sweep_id, sweep_config, cmd_args=args.args)
     count = args.count if args.count is not None else agent.default_count
     study.optimize(agent, n_trials=count)
 

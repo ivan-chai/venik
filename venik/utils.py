@@ -10,7 +10,6 @@ from sqlalchemy.pool import NullPool
 
 
 OPTUNA_DB = "Optuna"
-SWEEP_DB = "Sweeps"
 SQL_ENGINE_KWARGS = {"connect_args": {
     "connect_timeout": 10,
     "ssl_ca": certifi.where(),
@@ -38,22 +37,22 @@ def get_mysql_url():
     return url
 
 
-def get_optuna_storage(read_only=False):
+def get_optuna_storage():
     storage = optuna.storages.RDBStorage(
         url=get_mysql_url() + f"/{OPTUNA_DB}",
-        engine_kwargs=SQL_ENGINE_KWARGS | {"pool_pre_ping": False},
-        skip_table_creation=not read_only,
-        skip_compatibility_check=not read_only
+        engine_kwargs=SQL_ENGINE_KWARGS,
     )
     return storage
 
 
 class SweepDB:
-    def __init__(self):
-        self.engine = create_engine(
-            get_mysql_url() + f"/{SWEEP_DB}",
-            **SQL_ENGINE_KWARGS
-        )
+    def __init__(self, engine=None):
+        if engine is None:
+            engine = create_engine(
+                get_mysql_url() + f"/{OPTUNA_DB}",
+                **SQL_ENGINE_KWARGS
+            )
+        self.engine = engine
         with self.engine.begin() as conn:
             query = sa.text("""
             SELECT *
