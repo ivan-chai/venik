@@ -81,10 +81,11 @@ class Agent:
 
 
 def main(args):
+    agent = Agent(args.sweep_id, cmd_args=args.args)
+
     storage = get_optuna_storage()
     study = optuna.load_study(study_name=args.sweep_id, storage=storage)
 
-    agent = Agent(args.sweep_id, cmd_args=args.args)
     count = args.count if args.count is not None else agent.default_count
     study.optimize(agent, n_trials=count)
 
