@@ -1,4 +1,5 @@
 import argparse
+import datetime
 import os
 import re
 import yaml
@@ -48,6 +49,27 @@ def main(args):
             metrics_path = os.path.join(run_dir, f"metrics-{run_id}.yaml")
             with open(metrics_path, "w") as f:
                 yaml.safe_dump(metrics, f)
+
+            info = run.info
+            meta = {
+                "run_id": run_id,
+                "run_name": run_name,
+                "experiment_id": info.experiment_id,
+                "experiment_name": experiment.name,
+                "status": info.status,
+                "user_id": info.user_id,
+            }
+            if info.start_time:
+                meta["start_time"] = datetime.datetime.fromtimestamp(
+                    info.start_time / 1000, tz=datetime.timezone.utc
+                ).isoformat()
+            if info.end_time:
+                meta["end_time"] = datetime.datetime.fromtimestamp(
+                    info.end_time / 1000, tz=datetime.timezone.utc
+                ).isoformat()
+            meta_path = os.path.join(run_dir, f"meta-{run_id}.yaml")
+            with open(meta_path, "w") as f:
+                yaml.safe_dump(meta, f)
 
             print(f"{run_dir}")
 
