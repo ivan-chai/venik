@@ -38,10 +38,13 @@ def main(args):
 
             metric_keys = [k for k in run.data.metrics if metric_pattern.search(k)]
             if not metric_keys:
+                print(f"No metrics for {run_name}")
                 continue
 
+            print(run_name)
+
             run_id = run.info.run_id
-            run_dir = os.path.join(args.target, run_name)
+            run_dir = os.path.join(args.target, experiment.name, run_name)
             os.makedirs(run_dir, exist_ok=True)
 
             info = run.info
